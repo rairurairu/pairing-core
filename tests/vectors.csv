@@ -1,0 +1,28 @@
+ask,seller_min,buyer_max,price
+# All amounts in cents, USD tick schedule. "none" = no deal.
+# Each row was worked out by hand; other implementations should reproduce all of them.
+2000,1500,1800,1700    # ask $20, min $15, max $18 → $17
+2000,1500,3000,1800    # budget above ask: zone [15, 20], midpoint 17.5 rounds up
+2000,2000,2000,2000    # only one price possible
+2000,1500,1500,1500    # buyer max equals seller min
+3000,2500,2000,none    # no overlap
+3000,2500,2499,none    # one cent short
+200,100,300,150        # tissues: $0.50 ticks below $10
+200,100,200,150
+100,50,100,100         # zone [0.50, 1.00], midpoint 0.75 rounds half-up to 1.00
+100,75,100,100         # zone [0.75, 1.00], midpoint 0.875 → 1.00
+100,75,80,80           # rounded 1.00 is above the ceiling, clamped to 0.80
+999,500,999,750        # midpoint 7.495 rounds to 7.50
+1000,500,1000,750      # midpoint 7.50 is below $10, so $0.50 ticks apply
+5000,451,999,750       # midpoint 7.25 rounds half-up to 7.50 …
+5000,451,1000,750      # … and stays there when the buyer's max crosses $10
+1080,1075,2000,1080    # off-tick limits: midpoint 10.775 rounds to 11.00, clamped to 10.80
+1900,100,1900,1000     # midpoint exactly $10.00 uses $1 ticks
+1200,1000,1625,1100    # umbrella: zone [10, 12] → 11
+1500,1200,2000,1400    # zone [12, 15], midpoint 13.5 rounds up
+1500,1200,1300,1300    # zone [12, 13], midpoint 12.5 rounds up
+800,600,800,700
+45,25,100,45           # rounded 0.50 is above the 0.45 ceiling, clamped to 0.45
+45,25,45,45
+1,1,1,1                # one cent
+123457,100000,150000,111700 # zone [1000.00, 1234.57], midpoint 1117.285 → 1117

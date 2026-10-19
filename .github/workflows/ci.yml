@@ -1,0 +1,25 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  rust:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+          components: rustfmt, clippy
+      - run: cargo fmt --check
+      - run: cargo clippy --all-targets -- -D warnings
+      - run: cargo clippy --target wasm32-unknown-unknown --lib -- -D warnings
+      - run: cargo test
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Build the WebAssembly module and run the JS tests against it
+        working-directory: js
+        run: npm run build && npm test

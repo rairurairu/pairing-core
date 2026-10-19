@@ -1,0 +1,21 @@
+{
+  "name": "pairing-core",
+  "version": "0.1.0",
+  "description": "Privacy-preserving price settlement for two-sided marketplaces, compiled from Rust to a ~1 KB WebAssembly module.",
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "default": "./index.js"
+    },
+    "./pairing_core.wasm": "./pairing_core.wasm"
+  },
+  "files": ["index.js", "index.d.ts", "pairing_core.wasm"],
+  "engines": { "node": ">=20.16" },
+  "keywords": ["marketplace", "negotiation", "privacy", "agents", "wasm", "mcp"],
+  "scripts": {
+    "build": "node build.mjs",
+    "test": "node --test test.mjs"
+  }
+}
