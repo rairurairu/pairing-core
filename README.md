@@ -94,7 +94,7 @@ Any other implementation can run them to prove it settles identically.
 
 ## Used by
 
-[VoiceMarket](https://github.com/adamchoi787/voice-market-mcp), a voice-first
+[AmazonPairUp](https://github.com/adamchoi787/voice-market-mcp), a voice-first
 marketplace for Alexa+ that pairs buyers and sellers directly. Its MCP server
 settles every deal through this module.
 
