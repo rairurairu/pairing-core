@@ -1,0 +1,15 @@
+{
+  "name": "pairing-core-mcp-example",
+  "private": true,
+  "type": "module",
+  "description": "An MCP server whose make_offer tool settles inside private limits with pairing-core.",
+  "scripts": {
+    "start": "node main.mjs",
+    "test": "node --test test.mjs"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.32.1",
+    "pairing-core": "file:../../js",
+    "zod": "^4.6.7"
+  }
+}

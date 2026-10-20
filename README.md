@@ -1,5 +1,7 @@
 # pairing-core
 
+[![CI](https://github.com/rairurairu/pairing-core/actions/workflows/ci.yml/badge.svg)](https://github.com/rairurairu/pairing-core/actions/workflows/ci.yml)
+
 Price settlement for two-sided marketplaces where software agents trade on
 behalf of people.
 
@@ -96,6 +98,17 @@ cd js && npm run build && npm test                  # builds pairing_core.wasm, 
 
 [`tests/vectors.csv`](tests/vectors.csv) lists hand-checked inputs and prices.
 Any other implementation can run them to prove it settles identically.
+
+## Examples
+
+- [`examples/mcp-server`](examples/mcp-server): an MCP server with a
+  `make_offer` tool. The seller's minimum stays on the server, the agent passes
+  the buyer's budget once, and the tool result carries only the settlement. Its
+  tests check that no result mentions the minimum and that coming back with a
+  lower budget never settles lower. Run it with `npm install && npm start`.
+- [`examples/walk_away.rs`](examples/walk_away.rs): a buyer probes downward
+  after walking away, and the floor turns every probe into the same "no deal".
+  Run it with `cargo run --example walk_away`.
 
 ## Used by
 
