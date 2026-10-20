@@ -1,10 +1,10 @@
 [package]
 name = "pairing-core"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 rust-version = "1.82"
 license = "MIT"
-description = "Privacy-preserving price settlement for two-sided marketplaces where agents negotiate inside limits each person sets privately."
+description = "Price settlement for two-sided marketplaces: inside both people's private limits, revealing neither."
 readme = "README.md"
 keywords = ["marketplace", "negotiation", "privacy", "agents", "wasm"]
 categories = ["algorithms", "wasm", "finance"]

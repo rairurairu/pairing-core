@@ -1,7 +1,7 @@
 {
   "name": "pairing-core",
-  "version": "0.1.0",
-  "description": "Privacy-preserving price settlement for two-sided marketplaces, compiled from Rust to a ~1 KB WebAssembly module.",
+  "version": "0.2.0",
+  "description": "Price settlement inside private limits that reveals neither limit, compiled from Rust to a ~1 KB WebAssembly module.",
   "license": "MIT",
   "type": "module",
   "exports": {

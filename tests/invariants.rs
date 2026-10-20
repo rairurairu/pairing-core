@@ -1,8 +1,7 @@
-//! Every documented guarantee, checked exhaustively: a dense grid of amounts
-//! plus hand-picked boundary values (tick edges, the $10 threshold, off-tick
-//! limits). Runs in a few seconds in debug builds.
+//! Every documented guarantee, checked exhaustively over a dense grid of
+//! amounts plus hand-picked boundary values. Runs in a few seconds in debug builds.
 
-use pairing_core::{settle, settle_with, Cents, Limits, Settlement, Ticks};
+use pairing_core::{settle, Cents, Limits, Settlement};
 
 fn amounts() -> Vec<Cents> {
     let mut v: Vec<Cents> = (1..=1300).step_by(13).collect();
@@ -15,16 +14,29 @@ fn amounts() -> Vec<Cents> {
     v
 }
 
+fn lim(ask: Cents, seller_min: Cents, buyer_max: Cents, floor: Cents) -> Limits {
+    Limits {
+        ask,
+        seller_min,
+        buyer_max,
+        floor,
+    }
+}
+
+fn price(l: Limits) -> Option<Cents> {
+    match settle(l).expect("valid limits") {
+        Settlement::Deal { price, .. } => Some(price),
+        Settlement::NoDeal => None,
+    }
+}
+
+/// Every valid (ask, seller_min, buyer_max) on the grid, with no floor.
 fn each_valid(mut f: impl FnMut(Limits, Settlement)) {
     let xs = amounts();
     for &ask in &xs {
         for &seller_min in xs.iter().filter(|&&m| m <= ask) {
             for &buyer_max in &xs {
-                let l = Limits {
-                    ask,
-                    seller_min,
-                    buyer_max,
-                };
+                let l = lim(ask, seller_min, buyer_max, 0);
                 f(l, settle(l).expect("valid limits"));
             }
         }
@@ -40,7 +52,7 @@ fn deal_exactly_when_the_limits_overlap() {
 }
 
 #[test]
-fn price_stays_inside_both_limits_and_below_ask() {
+fn price_stays_inside_both_limits_and_at_most_the_ask() {
     each_valid(|l, s| {
         if let Settlement::Deal {
             price,
@@ -56,58 +68,53 @@ fn price_stays_inside_both_limits_and_below_ask() {
 }
 
 #[test]
-fn price_is_the_rounded_midpoint_unless_a_limit_binds() {
+fn the_sellers_minimum_never_moves_the_price() {
+    // Non-interference: every minimum that allows the deal gives the same price,
+    // so the price carries no information about which minimum it was.
+    let xs = amounts();
+    for &ask in &xs {
+        for &buyer_max in &xs {
+            let prices: Vec<Cents> = xs
+                .iter()
+                .filter(|&&m| m <= ask)
+                .filter_map(|&m| price(lim(ask, m, buyer_max, 0)))
+                .collect();
+            assert!(
+                prices.windows(2).all(|w| w[0] == w[1]),
+                "ask {ask}, max {buyer_max}: price depends on the minimum: {prices:?}"
+            );
+        }
+    }
+}
+
+#[test]
+fn a_budget_at_or_above_the_ask_never_moves_the_price() {
     each_valid(|l, s| {
-        if let Settlement::Deal { price, .. } = s {
-            let ceiling = l.ask.min(l.buyer_max);
-            let tick = if l.seller_min + ceiling < 2 * Ticks::USD.small_below {
-                Ticks::USD.small_tick
-            } else {
-                Ticks::USD.large_tick
-            };
-            let at_limit = price == l.seller_min || price == ceiling;
-            assert!(
-                at_limit || price % tick == 0,
-                "{l:?} → {price} is off the {tick} tick"
-            );
-            // |price − midpoint| ≤ tick / 2, compared in doubled units to stay exact.
-            assert!(
-                (2 * price - (l.seller_min + ceiling)).abs() <= tick,
-                "{l:?} → {price} far from midpoint"
-            );
+        if l.buyer_max >= l.ask {
+            if let Settlement::Deal { price, .. } = s {
+                assert_eq!(price, l.ask, "{l:?}");
+            }
         }
     });
 }
 
 #[test]
-fn raising_any_limit_never_lowers_the_price() {
+fn walking_away_never_pays() {
+    // After an offer at `floor`, no later budget gets a lower price, however the
+    // buyer varies it. So a step-by-step lower budget cannot find the minimum.
     let xs = amounts();
-    let p = |ask, seller_min, buyer_max| match settle(Limits {
-        ask,
-        seller_min,
-        buyer_max,
-    }) {
-        Ok(Settlement::Deal { price, .. }) => Some(price),
-        _ => None,
-    };
-    for w in xs.windows(2) {
-        let (lo, hi) = (w[0], w[1]);
-        for &a in &xs {
-            for &b in &xs {
-                // buyer_max: lo → hi
-                if let (Some(x), Some(y)) = (p(a, b.min(a), lo), p(a, b.min(a), hi)) {
-                    assert!(y >= x, "buyer_max {lo}→{hi} lowered the price");
-                }
-                // seller_min: lo → hi
-                if hi <= a {
-                    if let (Some(x), Some(y)) = (p(a, lo, b), p(a, hi, b)) {
-                        assert!(y >= x, "seller_min {lo}→{hi} lowered the price");
-                    }
-                }
-                // ask: lo → hi
-                if b <= lo {
-                    if let (Some(x), Some(y)) = (p(lo, b, a), p(hi, b, a)) {
-                        assert!(y >= x, "ask {lo}→{hi} lowered the price");
+    for &ask in xs.iter().step_by(3) {
+        for &seller_min in xs.iter().filter(|&&m| m <= ask).step_by(3) {
+            for &first in &xs {
+                let Some(offered) = price(lim(ask, seller_min, first, 0)) else {
+                    continue;
+                };
+                for &again in &xs {
+                    if let Some(p) = price(lim(ask, seller_min, again, offered)) {
+                        assert!(
+                            p >= offered,
+                            "ask {ask} min {seller_min}: {offered} then {p}"
+                        );
                     }
                 }
             }
@@ -116,13 +123,28 @@ fn raising_any_limit_never_lowers_the_price() {
 }
 
 #[test]
-fn cent_ticks_settle_on_the_exact_midpoint() {
-    each_valid(|l, _| {
-        if let Ok(Settlement::Deal { price, .. }) = settle_with(l, Ticks::CENT) {
-            let ceiling = l.ask.min(l.buyer_max);
-            assert_eq!(price, (l.seller_min + ceiling + 1) / 2, "{l:?}");
+fn raising_the_ask_or_the_budget_never_lowers_the_price() {
+    let xs = amounts();
+    for w in xs.windows(2) {
+        let (lo, hi) = (w[0], w[1]);
+        for &a in &xs {
+            for &b in &xs {
+                // buyer_max: lo → hi
+                if let (Some(x), Some(y)) = (
+                    price(lim(a, b.min(a), lo, 0)),
+                    price(lim(a, b.min(a), hi, 0)),
+                ) {
+                    assert!(y >= x, "buyer_max {lo}→{hi} lowered the price");
+                }
+                // ask: lo → hi
+                if b <= lo {
+                    if let (Some(x), Some(y)) = (price(lim(lo, b, a, 0)), price(lim(hi, b, a, 0))) {
+                        assert!(y >= x, "ask {lo}→{hi} lowered the price");
+                    }
+                }
+            }
         }
-    });
+    }
 }
 
 #[test]
@@ -135,20 +157,19 @@ fn published_vectors_match() {
         }
         let f: Vec<&str> = line.split(',').map(str::trim).collect();
         let n = |i: usize| f[i].parse::<Cents>().unwrap();
-        let expected = match f[3] {
+        let expected = match f[4] {
             "none" => Settlement::NoDeal,
             p => Settlement::Deal {
                 price: p.parse().unwrap(),
                 saved_vs_ask: n(0) - p.parse::<Cents>().unwrap(),
             },
         };
-        let l = Limits {
-            ask: n(0),
-            seller_min: n(1),
-            buyer_max: n(2),
-        };
-        assert_eq!(settle(l).unwrap(), expected, "vector {line}");
+        assert_eq!(
+            settle(lim(n(0), n(1), n(2), n(3))).unwrap(),
+            expected,
+            "vector {line}"
+        );
         checked += 1;
     }
-    assert!(checked >= 20);
+    assert!(checked >= 15);
 }

@@ -6,13 +6,8 @@ export interface Limits {
   sellerMin: number;
   /** The buyer's private maximum. */
   buyerMax: number;
-}
-
-/** Prices below `smallBelow` (by zone midpoint) use `smallTick`, others `largeTick`. */
-export interface Ticks {
-  smallBelow: number;
-  smallTick: number;
-  largeTick: number;
+  /** The best price this buyer already walked away from for this listing. Default 0. */
+  floor?: number;
 }
 
 /** A refusal carries no data, so it cannot leak how far apart the limits were. */
@@ -20,10 +15,9 @@ export type Settlement = { ok: true; price: number; savedVsAsk: number } | { ok:
 
 export interface PairingCore {
   /** Throws RangeError for non-positive, fractional or out-of-range amounts, or min above ask. */
-  settle(limits: Limits, ticks?: Ticks): Settlement;
+  settle(limits: Limits): Settlement;
 }
 
-export const ABI_VERSION: 1;
-export const USD_TICKS: Readonly<Ticks>;
+export const ABI_VERSION: 2;
 export function loadSync(): PairingCore;
 export function load(source?: BufferSource | Response | Promise<Response> | URL | string): Promise<PairingCore>;

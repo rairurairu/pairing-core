@@ -2,33 +2,29 @@
 // WebAssembly module with a plain numeric interface. Works in Node and browsers.
 
 const NO_DEAL = -1;
-const INVALID_AMOUNT = -2;
 const MIN_ABOVE_ASK = -3;
 
 /** Numeric interface version this wrapper understands. */
-export const ABI_VERSION = 1;
-
-/** $0.50 steps below $10, whole dollars from $10 up (amounts in cents). */
-export const USD_TICKS = Object.freeze({ smallBelow: 1000, smallTick: 50, largeTick: 100 });
+export const ABI_VERSION = 2;
 
 function wrap(instance) {
-  const { pc_abi_version, pc_settle, pc_settle_with } = instance.exports;
+  const { pc_abi_version, pc_settle } = instance.exports;
   const abi = pc_abi_version();
   if (abi !== ABI_VERSION) throw new Error(`pairing-core: expected ABI ${ABI_VERSION}, module has ${abi}`);
 
   return Object.freeze({
     /**
-     * Settle on a price inside both private limits. All amounts are whole cents.
+     * Settle one pairing: the ask, or the buyer's lower budget as an offer the
+     * seller's minimum accepts. `floor` is the best price this buyer already
+     * walked away from for this listing (default 0). All amounts are whole cents.
      * Returns { ok: true, price, savedVsAsk } or { ok: false } (no data on refusal).
      */
-    settle({ ask, sellerMin, buyerMax }, ticks) {
-      const r = ticks
-        ? pc_settle_with(ask, sellerMin, buyerMax, ticks.smallBelow, ticks.smallTick, ticks.largeTick)
-        : pc_settle(ask, sellerMin, buyerMax);
+    settle({ ask, sellerMin, buyerMax, floor = 0 }) {
+      const r = pc_settle(ask, sellerMin, buyerMax, floor);
       if (r >= 0) return { ok: true, price: r, savedVsAsk: ask - r };
       if (r === NO_DEAL) return { ok: false };
       if (r === MIN_ABOVE_ASK) throw new RangeError("pairing-core: the seller's minimum is above the asking price");
-      throw new RangeError("pairing-core: amounts must be positive whole cents (and ticks valid)");
+      throw new RangeError("pairing-core: amounts must be positive whole cents (floor may be 0)");
     },
   });
 }
